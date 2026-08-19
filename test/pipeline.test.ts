@@ -195,6 +195,102 @@ describe("analyze CLI", () => {
   });
 });
 
+describe("runner resume accounting", () => {
+  // Runs the CLI with no credentials. Every attempt fails as `config` before any
+  // network call, which makes this test free and offline while still exercising
+  // the real resume path.
+  function runCli(args: string[]): string {
+    try {
+      return execFileSync("npx", ["tsx", "src/runner.ts", ...args], {
+        cwd: REPO_ROOT,
+        encoding: "utf-8",
+        stdio: ["ignore", "pipe", "pipe"],
+        env: { ...process.env, ANTHROPIC_API_KEY: "" },
+      });
+    } catch (err: unknown) {
+      // Exit code 1 is expected when every run fails; stderr still holds the log.
+      return String((err as { stderr?: string }).stderr ?? "");
+    }
+  }
+
+  it("does not count config failures toward the requested run total", () => {
+    const out = path.join(REPO_ROOT, "runs", "__resume-test.jsonl");
+    const seed = {
+      ticket_id: "T-1007",
+      model: "claude-sonnet-4-6",
+      agent_commit: "07c1f50",
+      started_at: "2026-08-18T00:00:00.000Z",
+      duration_ms: 5,
+      ok: false,
+      failure_kind: "config",
+      error: "Claude API call failed: Could not resolve authentication method.",
+      escalate_tool_fired: false,
+    };
+
+    fs.mkdirSync(path.dirname(out), { recursive: true });
+    fs.writeFileSync(
+      out,
+      [
+        JSON.stringify({ ...seed, run_index: 0 }),
+        JSON.stringify({ ...seed, run_index: 1 }),
+      ].join("\n") + "\n",
+    );
+
+    try {
+      const log = runCli(["--ticket", "T-1007", "--runs", "3", "--out", "runs/__resume-test.jsonl"]);
+
+      // Two prior config failures must not reduce the three runs still owed.
+      assert.match(log, /To execute:\s+3 runs/, `expected 3 planned runs, got:\n${log}`);
+      assert.match(log, /ignoring 2 earlier run\(s\)/);
+
+      const indices = fs
+        .readFileSync(out, "utf-8")
+        .trim()
+        .split("\n")
+        .map((l) => JSON.parse(l).run_index);
+
+      assert.equal(indices.length, 5, "two seeded records plus three new ones");
+      assert.deepEqual(
+        [...indices].sort((a, b) => a - b),
+        [0, 1, 2, 3, 4],
+        "run indices must stay unique rather than colliding with the seeded records",
+      );
+    } finally {
+      fs.rmSync(out, { force: true });
+    }
+  });
+
+  it("does count genuine failures toward the total, so they are not retried", () => {
+    const out = path.join(REPO_ROOT, "runs", "__resume-malformed.jsonl");
+    fs.mkdirSync(path.dirname(out), { recursive: true });
+    fs.writeFileSync(
+      out,
+      JSON.stringify({
+        ticket_id: "T-1007",
+        run_index: 0,
+        model: "claude-sonnet-4-6",
+        agent_commit: "07c1f50",
+        started_at: "2026-08-18T00:00:00.000Z",
+        duration_ms: 3000,
+        ok: false,
+        failure_kind: "malformed",
+        error: "Model did not return valid JSON on completion",
+        escalate_tool_fired: false,
+      }) + "\n",
+    );
+
+    try {
+      // A malformed response is a real observed outcome. Retrying only failures
+      // would bias the sweep toward success, so one run is already accounted for.
+      const log = runCli(["--ticket", "T-1007", "--runs", "3", "--out", "runs/__resume-malformed.jsonl"]);
+      assert.match(log, /To execute:\s+2 runs/, `expected 2 planned runs, got:\n${log}`);
+      assert.ok(!log.includes("ignoring"), "malformed failures are not stale config records");
+    } finally {
+      fs.rmSync(out, { force: true });
+    }
+  });
+});
+
 describe("fixture integrity", () => {
   it("is present and parseable", () => {
     assert.ok(fs.existsSync(FIXTURE), "run: npx tsx test/fixtures/generate.ts");

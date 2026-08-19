@@ -137,15 +137,41 @@ async function main() {
     );
   }
 
-  const doneByTicket = new Map<string, number>();
+  // Two separate tallies, because they answer different questions.
+  //
+  // `measured` decides how many more runs are owed. Config failures are skipped:
+  // they mean the API was never successfully reached, so no measurement happened
+  // and counting them would silently leave the ticket short of --runs. Every other
+  // failure kind does count — a malformed response or an API error is a real
+  // observed outcome, and retrying only those would bias the sweep toward success.
+  //
+  // `nextIndex` decides run numbering, and counts every record so that indices
+  // stay unique within the file even when config failures are being re-run.
+  const measured = new Map<string, number>();
+  const nextIndex = new Map<string, number>();
   for (const r of existing) {
-    doneByTicket.set(r.ticket_id, (doneByTicket.get(r.ticket_id) ?? 0) + 1);
+    if (r.failure_kind !== "config") {
+      measured.set(r.ticket_id, (measured.get(r.ticket_id) ?? 0) + 1);
+    }
+    nextIndex.set(r.ticket_id, Math.max(nextIndex.get(r.ticket_id) ?? 0, r.run_index + 1));
+  }
+
+  const staleConfigFailures = existing.filter((r) => r.failure_kind === "config").length;
+  if (staleConfigFailures > 0) {
+    console.error(
+      `Note: ignoring ${staleConfigFailures} earlier run(s) that failed with configuration ` +
+        `errors — those never reached the API, so they do not count toward --runs.\n`,
+    );
   }
 
   const work = cases
     .map((testCase) => {
-      const done = doneByTicket.get(testCase.ticket_id) ?? 0;
-      return { testCase, done, needed: Math.max(0, opts.runs - done) };
+      const done = measured.get(testCase.ticket_id) ?? 0;
+      return {
+        testCase,
+        startIndex: nextIndex.get(testCase.ticket_id) ?? 0,
+        needed: Math.max(0, opts.runs - done),
+      };
     })
     .filter((w) => w.needed > 0);
 
@@ -170,12 +196,16 @@ async function main() {
   let completed = 0;
   let failed = 0;
 
-  const runTicket = async ({ testCase, done, needed }: { testCase: TestCase; done: number; needed: number }) => {
+  const runTicket = async ({
+    testCase,
+    startIndex,
+    needed,
+  }: { testCase: TestCase; startIndex: number; needed: number }) => {
     // Runs of the same ticket stay sequential: escalation detection reads a
     // before/after delta on the agent's in-process log, which is only
     // attributable while one run per ticket_id is in flight.
     for (let i = 0; i < needed; i++) {
-      const record = await runOnce(testCase, done + i, opts.model, agentCommit);
+      const record = await runOnce(testCase, startIndex + i, opts.model, agentCommit);
       fs.appendFileSync(opts.out, JSON.stringify(record) + "\n");
 
       completed++;
