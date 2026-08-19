@@ -1,0 +1,6 @@
+{
+  "ticket_id": "T-2003",
+  "customer_email": "m.chen@globex.com",
+  "subject": "Dashboard is really slow",
+  "body": "The main dashboard has been taking 30 seconds or more to finish loading for the past few days. We have somewhere around 4000 records in the workspace now. Everything else in the product feels normal, it's specifically that one screen that lags."
+}

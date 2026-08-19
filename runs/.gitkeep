@@ -1,0 +1,3 @@
+Raw per-run JSONL from measurement sweeps lands here, one line per run.
+Committed alongside the reports generated from it so every published number
+can be recomputed from the runs that produced it.

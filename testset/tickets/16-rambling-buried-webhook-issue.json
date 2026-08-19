@@ -1,0 +1,6 @@
+{
+  "ticket_id": "T-2009",
+  "customer_email": "ops@contoso.net",
+  "subject": "Following up on a few things",
+  "body": "Hi there, hope you're having a good week. I've been meaning to write in for a while about a handful of things that have come up since we onboarded back in the spring. First off I wanted to say the team has generally been really happy with the platform, the reporting module in particular has saved our analysts a ton of manual work compared to the spreadsheet mess we had before. A couple of people asked about whether there's a mobile app in the works, which I said I'd mention but isn't a priority for us. We also had a new hire start in ops last month and getting her set up was smooth. The one thing I do actually need help with is that our webhook endpoint stopped receiving any events at all after we rotated our API key on Monday afternoon, and we haven't seen a single delivery since. Anyway, no rush on the mobile app question, that one was just curiosity."
+}

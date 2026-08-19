@@ -1,0 +1,6 @@
+{
+  "ticket_id": "T-2001",
+  "customer_email": "priya.k@northwind.io",
+  "subject": "Feature request: bulk tag editing",
+  "body": "Would it be possible to add a way to edit tags on several records at once? Right now we have to open each record individually and change them one at a time, which gets painful when we're reorganizing a few hundred of them after a quarter closes. Not urgent, just something that would save our team a lot of clicking."
+}

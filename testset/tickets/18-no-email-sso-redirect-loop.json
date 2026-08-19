@@ -1,0 +1,5 @@
+{
+  "ticket_id": "T-2011",
+  "subject": "SSO sign-in keeps bouncing me back",
+  "body": "When I try to sign in through our Okta SSO tile it sends me to your site, then immediately redirects me back to Okta, and it just keeps going around like that until the browser gives up. This started this morning and it's affecting everyone on our team, so nobody can get in right now."
+}

@@ -1,0 +1,3 @@
+[submodule "vendor/ticket-triage-agent"]
+	path = vendor/ticket-triage-agent
+	url = https://github.com/harperbrian/ticket-triage-agent.git

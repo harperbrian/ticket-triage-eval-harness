@@ -1,0 +1,31 @@
+{
+  "name": "ticket-triage-eval-harness",
+  "version": "1.0.0",
+  "description": "A reliability evaluation harness that measures run-to-run classification drift in the Support Ticket Triage Agent — same ticket, N runs, how often does the answer change, and does the model's own confidence score predict it.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "eval": "tsx src/runner.ts",
+    "analyze": "tsx src/analyze.ts",
+    "test": "tsx --test test/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "license": "MIT",
+  "author": "Brian Harper",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1",
+    "dotenv": "^16.4.5",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  }
+}

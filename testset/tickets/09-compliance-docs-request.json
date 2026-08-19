@@ -1,0 +1,6 @@
+{
+  "ticket_id": "T-2002",
+  "customer_email": "ops@contoso.net",
+  "subject": "SOC 2 report and DPA for vendor review",
+  "body": "Our security team is running its annual vendor review and has asked me to collect your SOC 2 Type II report along with a copy of your standard data processing agreement. Who should I be talking to about getting those? There's no deadline pressure on our side, we just need them before the review closes next month."
+}

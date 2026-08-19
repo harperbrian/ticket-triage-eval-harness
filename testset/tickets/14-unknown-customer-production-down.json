@@ -1,0 +1,6 @@
+{
+  "ticket_id": "T-2007",
+  "customer_email": "platform@vertigo-labs.example",
+  "subject": "API returning 500s across the board",
+  "body": "Every request to your API has been coming back with a 500 for the last forty minutes. Our checkout flow depends on it and customers are currently unable to complete orders. We have not changed anything on our end. Please treat this as urgent."
+}

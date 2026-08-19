@@ -1,0 +1,3 @@
+Generated reliability reports land here, one per model.
+Reports built from test/fixtures/ are synthetic and carry a warning banner —
+those do not belong in this directory.

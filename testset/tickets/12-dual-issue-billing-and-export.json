@@ -1,0 +1,6 @@
+{
+  "ticket_id": "T-2005",
+  "customer_email": "dev@fourthcoffee.com",
+  "subject": "Two problems",
+  "body": "First, our March invoice shows 12 seats but we only have 9 active users on the account, so we think we're being overcharged. Second, and unrelated, the CSV export has been failing every time we try it since Tuesday. Can someone look at both?"
+}

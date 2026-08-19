@@ -1,0 +1,6 @@
+{
+  "ticket_id": "T-2008",
+  "customer_email": "jsmith@acme.com",
+  "subject": "Restricting a contractor to one project",
+  "body": "We're bringing on an outside contractor next week and I need to give them view-only visibility into a single project without exposing any of our other workspaces to them. Is there a way to scope someone's role that narrowly, and if so where do I set it up?"
+}
