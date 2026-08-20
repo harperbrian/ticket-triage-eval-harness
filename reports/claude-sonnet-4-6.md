@@ -15,7 +15,7 @@ Measures run-to-run classification drift in the [Support Ticket Triage Agent](ht
 | Blocked before reaching the model | 78 — never reached a model, excluded from all rates |
 | Total records in log | 222 |
 | Source | `runs/claude-sonnet-4-6.jsonl` |
-| Generated | 2026-08-20T02:52:24.034Z |
+| Generated | 2026-08-20T02:53:20.140Z |
 
 ## Headline
 
@@ -86,6 +86,8 @@ Decomposing drift by field matters because the three are not equally consequenti
 | account_access | 2 | 0.0% | 0.80 |
 
 > Group sizes here are small — several rows rest on one or two tickets — so these comparisons are descriptive of this test set and should not be read as general properties of the categories.
+>
+> **The axis comparison above is affected by a post-hoc reclassification.** `T-2008` was moved from **clear_cut** to **ambiguous** after the sweep. The reasoning is in the revision block further down, but the effect is worth naming here: moving a high-drift ticket out of one group and into another makes the separation between those groups look cleaner than the unrevised data showed. Judge the reclassification on its stated reasoning, not on how tidy the resulting table is.
 
 ## Does self-reported confidence predict consistency?
 

@@ -35,8 +35,15 @@ Full report: [`reports/claude-sonnet-4-6.md`](reports/claude-sonnet-4-6.md) · R
 |---|---|
 | Tickets that drifted | 6 / 17 |
 | Tickets that flipped `auto_reply` ↔ `escalate` | 1 |
+| Worst single-ticket drift | 62.5% — 95% CI **[30.6%, 86.3%]** |
 | Runs that reached the model and returned invalid output | **0 of 136** |
 | Confidence vs. consistency | rho = 0.565, p = 0.019, n = 17 |
+
+Every rate in the full report carries a 95% Wilson score interval, not just the point
+estimate — at 8 runs per ticket, "0% drift" and "62.5% drift, ±28 points" are both real
+findings, but only one of them tells you how much the run count can actually support.
+
+Every rate in the report carries a **95% Wilson score confidence interval**, because at 8 runs a point estimate is not worth much on its own: a ticket showing 0% drift is only established to be somewhere under ~32%. The intervals are wide, they are supposed to be, and quoting the point estimates without them would overstate what this sample size can buy.
 
 ### The finding that motivated this project did not reproduce
 
@@ -59,6 +66,16 @@ That is the point of measuring rather than remembering. The anecdote was real wh
 
 The other five drifted only on labels: an unstable category or severity that never changed what the system would actually do. That distinction is why the harness decomposes drift per-field rather than reporting one number.
 
+### One expected label was revised after the sweep, and it is declared
+
+`T-2008` originally scored 0% accuracy. Reading the agent's own reasoning showed the fault was mine: the knowledge base has no article on role scoping, so the agent cannot tell whether project-scoped permissions are a supported feature or an unbuilt one — and my label had also ignored the ticket's stated deadline when setting the severity band.
+
+I revised it. Because revising expectations after seeing results is the main way a study like this quietly becomes worthless, **the original labels are preserved in `cases.json`, the change is flagged in the data, and the report prints the before/after and the reasoning above the accuracy figures it affects.** The reclassification also moved the ticket between test-set axes, which is disclosed next to the group table it changes.
+
+`T-2004` was reviewed at the same time and deliberately left alone: the agent rates it P2 on commercial grounds, but nothing is broken and no deadline is stated, so that disagreement is reported as a finding rather than corrected away. Only cases with an identifiable authoring error were touched.
+
+**None of the drift or consistency figures depend on expected labels at all** — that separation is why they are reported first.
+
 ### Confidence does track consistency — moderately
 
 `rho = 0.565` (p = 0.019, n = 17): tickets the model rates as high-confidence *are* the ones it answers the same way every time. The three least consistent tickets are all in the bottom third by confidence.
@@ -75,6 +92,23 @@ Raw JSONL is committed alongside every report, so any number above can be recomp
 
 > The sweep was interrupted partway by an API usage cap and resumed later; the run log therefore contains 78 blocked records that never reached a model. They are excluded from every rate and reported separately in the report's run configuration. This is also what surfaced a real bug in the harness — see the [commit history](../../commits/main).
 
+### What this sweep does not cover
+
+One model (`claude-sonnet-4-6`), one workload (ticket triage), 8 runs per ticket. Three
+things were scoped in during planning and deliberately cut to ship the core measurement
+rather than let it slide indefinitely:
+
+- **A second model tier** (`claude-haiku-4-5`), to see whether a cheaper model drifts more.
+- **A second workload** — replaying the [Customer Health Scoring workflow](https://github.com/harperbrian/customer-health-workflow)'s
+  prompt, which is categorically *stable* at n=24, as a contrast to triage's instability.
+- **Risk-tier thresholds** mapping drift rate to deployment supervision level, and a
+  [promptfoo](https://github.com/promptfoo/promptfoo) config demonstrating what that
+  framework can and can't express for this kind of measurement.
+
+None of these are needed to trust the numbers above — the Wilson intervals are what make
+that trust possible at this sample size — but they're the honest next increment if this
+sweep runs again.
+
 ---
 
 ## Running it without spending anything
@@ -85,7 +119,7 @@ The entire harness — every module, the full test suite, and end-to-end report 
 git clone --recurse-submodules https://github.com/harperbrian/ticket-triage-eval-harness.git
 cd ticket-triage-eval-harness
 npm install
-npm test                                                    # 68 tests, no network
+npm test                                                    # 77 tests, no network
 npx tsx src/analyze.ts --in test/fixtures/sample-runs.jsonl --stdout
 ```
 
@@ -194,7 +228,7 @@ src/
   runner.ts        sweep → append-only JSONL
   analyze.ts       JSONL → markdown report
 testset/           18 cases with documented expected labels
-test/              68 offline tests + the fixture generator
+test/              77 offline tests + the fixture generator
 runs/              raw per-run JSONL (committed)
 reports/           generated reports (committed)
 ```

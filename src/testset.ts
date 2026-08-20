@@ -15,6 +15,9 @@ const RevisionSchema = z.object({
   revised_on: z.string().min(1),
   revised_after_seeing_results: z.boolean(),
   original: ExpectedLabelsSchema,
+  original_axis: z
+    .enum(["clear_cut", "ambiguous", "unknown_customer", "edge_case", "validation"])
+    .optional(),
   reason: z.string().min(80, "a revision must explain itself in enough detail to be audited"),
 });
 

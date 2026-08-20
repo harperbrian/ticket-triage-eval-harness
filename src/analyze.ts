@@ -429,6 +429,23 @@ function buildReport(runs: RunRecord[], cases: TestCase[], inPath: string): stri
       `comparisons are descriptive of this test set and should not be read as general ` +
       `properties of the categories.`,
   );
+  const moved = cases.filter((c) => c.revision?.original_axis && c.revision.original_axis !== c.axis);
+  if (moved.length > 0) {
+    out.push(`>`);
+    out.push(
+      `> **The axis comparison above is affected by a post-hoc reclassification.** ` +
+        moved
+          .map(
+            (c) =>
+              `\`${c.ticket_id}\` was moved from **${c.revision!.original_axis}** to **${c.axis}** after the sweep`,
+          )
+          .join("; ") +
+        `. The reasoning is in the revision block further down, but the effect is worth naming ` +
+        `here: moving a high-drift ticket out of one group and into another makes the separation ` +
+        `between those groups look cleaner than the unrevised data showed. Judge the reclassification ` +
+        `on its stated reasoning, not on how tidy the resulting table is.`,
+    );
+  }
   out.push("");
 
   // ---- 5. The confidence question ------------------------------------------

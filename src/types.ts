@@ -34,6 +34,8 @@ export interface Revision {
   revised_on: string;
   revised_after_seeing_results: boolean;
   original: ExpectedLabels;
+  /** Set when the revision also moved the case between test-set axes. */
+  original_axis?: Axis;
   reason: string;
 }
 
