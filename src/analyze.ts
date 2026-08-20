@@ -134,8 +134,25 @@ function buildReport(runs: RunRecord[], cases: TestCase[], inPath: string): stri
 
   const withData = stats.filter((s) => s.scored_runs > 0);
 
+  // Intended runs per ticket, inferred from the best-covered ticket. A sweep that
+  // was cut off still has some ticket that reached the target.
+  const intendedRuns = Math.max(
+    1,
+    ...cases
+      .filter((c) => c.axis !== "validation")
+      .map((c) => runs.filter((r) => r.ticket_id === c.ticket_id && r.ok).length),
+  );
+
   const totalRuns = runs.length;
-  const totalFailed = runs.filter((r) => !r.ok).length;
+  const scoredRuns = runs.filter((r) => r.ok).length;
+  // Split failures by what they actually say about the agent. A single blended
+  // "failed runs" percentage reads as though the agent failed that often, when
+  // most of these are blocked attempts that never reached a model at all.
+  const agentFailures = runs.filter(
+    (r) => !r.ok && (r.failure_kind === "malformed" || r.failure_kind === "loop_exhausted"),
+  ).length;
+  const blockedRuns = runs.filter((r) => r.failure_kind && BLOCKED_KINDS.has(r.failure_kind)).length;
+  const validationRuns = runs.filter((r) => r.failure_kind === "validation").length;
   const configFailures = runs.filter((r) => r.failure_kind === "config").length;
 
   const out: string[] = [];
@@ -166,12 +183,6 @@ function buildReport(runs: RunRecord[], cases: TestCase[], inPath: string): stri
   );
   out.push("");
 
-  // Intended runs per ticket, inferred from the best-covered ticket. A sweep that
-  // was cut off still has some ticket that reached the target.
-  const intendedRuns = Math.max(
-    1,
-    ...measuredCases.map((c) => runs.filter((r) => r.ticket_id === c.ticket_id && r.ok).length),
-  );
   const coverage = assessCoverage(runs, cases, intendedRuns);
   const incomplete = coverage.missing.length > 0 || coverage.partial.length > 0;
 
@@ -221,8 +232,24 @@ function buildReport(runs: RunRecord[], cases: TestCase[], inPath: string): stri
         ["Model", `\`${models.join(", ")}\``],
         ["Agent commit", `\`${commits.map((c) => c.slice(0, 10)).join(", ")}\``],
         ["Tickets measured", String(stats.length)],
-        ["Total runs", String(totalRuns)],
-        ["Failed runs", `${totalFailed} (${pct(totalFailed / totalRuns)})`],
+        ["Scored runs", `${scoredRuns} (${intendedRuns} per ticket)`],
+        [
+          "Agent-attributable failures",
+          agentFailures === 0
+            ? "0 — every run that reached the model returned valid output"
+            : `${agentFailures} (${pct(agentFailures / (scoredRuns + agentFailures))} of runs that reached the model)`,
+        ],
+        [
+          "Validation rejections",
+          `${validationRuns} — rejected pre-API by design, excluded from all rates`,
+        ],
+        [
+          "Blocked before reaching the model",
+          blockedRuns === 0
+            ? "0"
+            : `${blockedRuns} — never reached a model, excluded from all rates`,
+        ],
+        ["Total records in log", String(totalRuns)],
         ["Source", `\`${path.relative(REPO_ROOT, inPath)}\``],
         ["Generated", new Date().toISOString()],
       ],
@@ -262,17 +289,16 @@ function buildReport(runs: RunRecord[], cases: TestCase[], inPath: string): stri
   const drifting = withData.filter((s) => s.triple_drift_rate > 0);
   const flipping = withData.filter((s) => s.action_flip_rate > 0);
   const worst = [...withData].sort((a, b) => b.triple_drift_rate - a.triple_drift_rate)[0]!;
-  const runsPerTicket = Math.round(totalRuns / cases.length);
 
   out.push(`## Headline`);
   out.push("");
   if (drifting.length === 0) {
     out.push(
-      `**No drift observed.** Across ${withData.length} tickets at roughly ${runsPerTicket} runs each, ` +
+      `**No drift observed.** Across ${withData.length} tickets at roughly ${intendedRuns} runs each, ` +
         `every ticket returned the same category, severity, and action on every run. ` +
         `On this test set, at this run count, the agent's classifications were stable. ` +
         `That is a real result and not a null one — but note that absence of observed drift ` +
-        `at ${runsPerTicket} runs does not establish absence of drift at higher run counts.`,
+        `at ${intendedRuns} runs does not establish absence of drift at higher run counts.`,
     );
   } else {
     out.push(
@@ -539,8 +565,8 @@ function buildReport(runs: RunRecord[], cases: TestCase[], inPath: string): stri
       `- **Test set size.** ${withData.length} tickets is enough to demonstrate a method and to ` +
         `surface drift where it is large. It is not enough to estimate drift rates precisely, and ` +
         `the correlation in particular rests on ${correlation.n} paired observations.`,
-      `- **Run count.** At roughly ${runsPerTicket} runs per ticket, the finest drift rate ` +
-        `distinguishable from zero is one flip in ${runsPerTicket} runs. A ticket reported at 0% ` +
+      `- **Run count.** At ${intendedRuns} runs per ticket, the finest drift rate ` +
+        `distinguishable from zero is one flip in ${intendedRuns} runs. A ticket reported at 0% ` +
         `drift may still be unstable at a rate below this resolution.`,
       `- **Sampling parameters.** The agent does not set \`temperature\`, so these runs use the ` +
         `API default. The harness measures the agent exactly as shipped and deliberately does not ` +

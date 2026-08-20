@@ -9,10 +9,13 @@ Measures run-to-run classification drift in the [Support Ticket Triage Agent](ht
 | Model | `claude-sonnet-4-6` |
 | Agent commit | `07c1f50ea4` |
 | Tickets measured | 17 |
-| Total runs | 222 |
-| Failed runs | 86 (38.7%) |
+| Scored runs | 136 (8 per ticket) |
+| Agent-attributable failures | 0 — every run that reached the model returned valid output |
+| Validation rejections | 8 — rejected pre-API by design, excluded from all rates |
+| Blocked before reaching the model | 78 — never reached a model, excluded from all rates |
+| Total records in log | 222 |
 | Source | `runs/claude-sonnet-4-6.jsonl` |
-| Generated | 2026-08-20T02:23:11.975Z |
+| Generated | 2026-08-20T02:31:17.953Z |
 
 ## Headline
 
@@ -143,7 +146,7 @@ These tickets are rejected by the agent's input schema before any API call, so t
 ## How to read this
 
 - **Test set size.** 17 tickets is enough to demonstrate a method and to surface drift where it is large. It is not enough to estimate drift rates precisely, and the correlation in particular rests on 17 paired observations.
-- **Run count.** At roughly 12 runs per ticket, the finest drift rate distinguishable from zero is one flip in 12 runs. A ticket reported at 0% drift may still be unstable at a rate below this resolution.
+- **Run count.** At 8 runs per ticket, the finest drift rate distinguishable from zero is one flip in 8 runs. A ticket reported at 0% drift may still be unstable at a rate below this resolution.
 - **Sampling parameters.** The agent does not set `temperature`, so these runs use the API default. The harness measures the agent exactly as shipped and deliberately does not modify it; the observed variance is the variance a real deployment of this agent would have.
 - **Expected labels are judgment.** The accuracy section measures agreement with a written rubric, not correctness against ground truth. Consistency measurements do not depend on those labels at all, which is why they are reported first.
 - **Mock data.** Customer and knowledge-base lookups are backed by local JSON fixtures in the agent repo, not a real CRM. Drift attributable to live data changing is out of scope here.

@@ -26,9 +26,54 @@ That question had no assumed answer when I built this. If the correlation turns 
 
 ## Results
 
-No measurement sweep has been published yet. When one runs, its report lands in [`reports/`](reports/) and the raw per-run data in [`runs/`](runs/).
+**First sweep: 8 runs × 18 tickets on `claude-sonnet-4-6`, agent pinned at `07c1f50`.**
+Full report: [`reports/claude-sonnet-4-6.md`](reports/claude-sonnet-4-6.md) · Raw runs: [`runs/claude-sonnet-4-6.jsonl`](runs/claude-sonnet-4-6.jsonl)
 
-Raw JSONL is committed alongside every report, so any number in a report can be recomputed from the runs that produced it. Nothing is averaged away at write time.
+**6 of 17 tickets returned a different classification across identical runs.** Mean drift 12.5%.
+
+| | |
+|---|---|
+| Tickets that drifted | 6 / 17 |
+| Tickets that flipped `auto_reply` ↔ `escalate` | 1 |
+| Runs that reached the model and returned invalid output | **0 of 136** |
+| Confidence vs. consistency | rho = 0.565, p = 0.019, n = 17 |
+
+### The finding that motivated this project did not reproduce
+
+`T-1001` is the ticket where I originally saw **P3 / 0.82 / auto_reply** on one run and **P2 / 0.88 / escalate** on another. Across 8 fresh runs it was **perfectly stable** — `account_access / P3 / auto_reply` every single time, with only the confidence score moving (0.72–0.85).
+
+That is the point of measuring rather than remembering. The anecdote was real when I saw it, but it is rarer than 1-in-8, and a systematic sweep says so instead of repeating it as a headline.
+
+### Drift showed up elsewhere, and one case actually changed behaviour
+
+| Ticket | What it is | Drift | What varied |
+|---|---|---|---|
+| `T-2008` | Contractor scoped-permissions question | **62.5%** | Read as `feature_request` ×5 vs `account_access` ×3 |
+| `T-2005` | One ticket reporting two unrelated problems | 50.0% | `other` ×4, `billing` ×2, `technical` ×2 |
+| **`T-1004`** | **Export failure, customer not in CRM** | **37.5%** | **`auto_reply` ×5 vs `escalate` ×3** |
+| `T-1003` | Vague "not working, please fix" | 25.0% | `technical` ×6 vs `other` ×2 |
+| `T-2004` | Pricing question that trips a KB false positive | 25.0% | `P2` ×6 vs `P3` ×2 |
+| `T-2009` | Real issue buried in four sentences of noise | 12.5% | `P2` ×7 vs `P1` ×1 |
+
+**`T-1004` is the one that matters operationally.** It is a data-export failure from a customer who is *not in the CRM*. The relevant knowledge-base article is tier-dependent — exports over 50k rows time out on free and pro, but Enterprise has no cap — so the correct handling is to escalate, because the tier is unknowable. On **5 of 8 identical runs the agent auto-replied anyway**, sending tier-specific advice to a customer whose tier it had no way to determine. Same input, same code, different decision about whether a human ever sees the ticket.
+
+The other five drifted only on labels: an unstable category or severity that never changed what the system would actually do. That distinction is why the harness decomposes drift per-field rather than reporting one number.
+
+### Confidence does track consistency — moderately
+
+`rho = 0.565` (p = 0.019, n = 17): tickets the model rates as high-confidence *are* the ones it answers the same way every time. The three least consistent tickets are all in the bottom third by confidence.
+
+This reaches conventional significance, but the report states plainly that at n = 17 the effect size is indicative rather than settled, and that a confidence score is not a substitute for a consistency measurement — `T-1004` flipped its decision at a mean confidence of 0.61, which is not low enough to have flagged it as risky in advance.
+
+### The agent's structured-output handling held up
+
+**Zero of 136 runs that reached the model returned malformed or schema-violating output.** The defensive JSON extraction added to the agent after an earlier failure appears to be doing its job. All 8 runs of the deliberately malformed ticket were rejected pre-API by the input schema, exactly as designed, costing nothing.
+
+### Reproducing it
+
+Raw JSONL is committed alongside every report, so any number above can be recomputed from the runs that produced it. Nothing is averaged away at write time.
+
+> The sweep was interrupted partway by an API usage cap and resumed later; the run log therefore contains 78 blocked records that never reached a model. They are excluded from every rate and reported separately in the report's run configuration. This is also what surfaced a real bug in the harness — see the [commit history](../../commits/main).
 
 ---
 
@@ -40,7 +85,7 @@ The entire harness — every module, the full test suite, and end-to-end report 
 git clone --recurse-submodules https://github.com/harperbrian/ticket-triage-eval-harness.git
 cd ticket-triage-eval-harness
 npm install
-npm test                                                    # 66 tests, no network
+npm test                                                    # 68 tests, no network
 npx tsx src/analyze.ts --in test/fixtures/sample-runs.jsonl --stdout
 ```
 
@@ -62,13 +107,15 @@ npm run eval -- --runs 8                   # full sweep
 npm run analyze                            # writes reports/<model>.md
 ```
 
-Rough cost, measured from the agent's actual system prompt and tool schemas (~1,100 input tokens on the first call, ~3.5 calls per triage as the tool loop runs, ~700 output tokens):
+**Actual measured cost**, from the first complete sweep rather than an estimate: **$0.0203 per triage** on `claude-sonnet-4-6`.
 
-| Sweep | Triages | Approx. cost |
+| Sweep | Triages | Cost |
 |---|---|---|
-| 8 runs × 18 tickets, Sonnet 4.6 | 144 | ~$4.00 |
-| 5 runs × 18 tickets, Sonnet 4.6 | 90 | ~$2.50 |
-| 8 runs × 18 tickets, Haiku 4.5 | 144 | ~$1.30 |
+| 8 runs × 18 tickets (the published sweep) | 136 | **~$2.76** |
+| 5 runs × 18 tickets | 85 | ~$1.73 |
+| Single-ticket smoke test, 2 runs | 2 | ~$0.04 |
+
+The agent does not report token usage back through `triageTicket`, and the harness does not modify it, so per-run cost is derived from total spend rather than recorded per record. That is a known limitation of measuring a read-only target.
 
 Useful flags:
 
@@ -147,7 +194,7 @@ src/
   runner.ts        sweep → append-only JSONL
   analyze.ts       JSONL → markdown report
 testset/           18 cases with documented expected labels
-test/              66 offline tests + the fixture generator
+test/              68 offline tests + the fixture generator
 runs/              raw per-run JSONL (committed)
 reports/           generated reports (committed)
 ```
