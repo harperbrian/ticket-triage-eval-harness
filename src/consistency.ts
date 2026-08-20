@@ -10,6 +10,27 @@ import type { FieldDrift, RunRecord, TestCase, TicketStats } from "./types.js";
  */
 const EXCLUDED_FAILURES = new Set(["config", "validation", "usage_limit", "api"]);
 
+/**
+ * Wilson score interval for a binomial rate, e.g. "6 of 8 runs disagreed with
+ * the modal answer." Reported instead of a normal-approximation interval
+ * because at the run counts this harness produces (n=8, n=20) the normal
+ * approximation is unreliable near 0 and 1 — exactly where most of this
+ * report's rates fall. A rate of 0/8 does not mean "0% drift"; it means the
+ * true rate is anywhere in [0%, 32.4%] at 95% confidence. Publishing the
+ * point estimate alone would overstate precision this run count cannot buy.
+ */
+export function wilsonInterval(successes: number, trials: number, z = 1.96): [number, number] {
+  if (trials === 0) return [0, 0];
+
+  const p = successes / trials;
+  const z2 = z * z;
+  const denom = 1 + z2 / trials;
+  const center = (p + z2 / (2 * trials)) / denom;
+  const margin = (z / denom) * Math.sqrt((p * (1 - p)) / trials + z2 / (4 * trials * trials));
+
+  return [Math.max(0, center - margin), Math.min(1, center + margin)];
+}
+
 /** Most frequent value, drift rate, and full distribution for one field. */
 export function fieldDrift(values: string[]): FieldDrift {
   if (values.length === 0) {
@@ -94,6 +115,11 @@ export function computeTicketStats(testCase: TestCase, runs: RunRecord[]): Ticke
 
     modal_triple: tripleDrift.modal,
     triple_drift_rate: tripleDrift.drift_rate,
+    // successes = runs that disagreed with the modal triple = total minus the modal count.
+    triple_drift_ci: wilsonInterval(
+      scored.length - (tripleDrift.distribution[0]?.count ?? 0),
+      scored.length,
+    ),
 
     category: fieldDrift(categories),
     severity: fieldDrift(severities),
@@ -102,6 +128,10 @@ export function computeTicketStats(testCase: TestCase, runs: RunRecord[]): Ticke
     // With only two possible actions, drift on this field is exactly the rate
     // at which the auto-reply/escalate decision flipped between runs.
     action_flip_rate: actionDrift.drift_rate,
+    action_flip_ci: wilsonInterval(
+      scored.length - (actionDrift.distribution[0]?.count ?? 0),
+      scored.length,
+    ),
 
     confidence_mean:
       confidences.length > 0

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
-import { computeTicketStats, groupStability } from "./consistency.js";
+import { computeTicketStats, groupStability, wilsonInterval } from "./consistency.js";
 import { correlateWithPermutation, interpret } from "./correlate.js";
 import { assessConfidenceCalibration, scoreRun } from "./score.js";
 import { loadTestSet } from "./testset.js";
@@ -18,6 +18,7 @@ Usage: npm run analyze -- [options]
 
 const pct = (n: number) => `${(n * 100).toFixed(1)}%`;
 const num = (n: number, dp = 2) => n.toFixed(dp);
+const ci = (c: [number, number]) => `[${pct(c[0])}–${pct(c[1])}]`;
 
 function mostRecentRunsFile(): string {
   const dir = path.join(REPO_ROOT, "runs");
@@ -305,7 +306,15 @@ function buildReport(runs: RunRecord[], cases: TestCase[], inPath: string): stri
       `**${drifting.length} of ${withData.length} tickets changed their answer between runs.** ` +
         `Mean drift across all measured tickets is ${pct(meanDrift)}. ` +
         `The least stable is **${worst.ticket_id}** at ${pct(worst.triple_drift_rate)} ` +
+        `${ci(worst.triple_drift_ci)} ` +
         `(${dist(worst.category.distribution)} / ${dist(worst.severity.distribution)} / ${dist(worst.action.distribution)}).`,
+    );
+    out.push("");
+    out.push(
+      `**Every rate in this report is a 95% Wilson score interval, not a point estimate.** ` +
+        `At ${intendedRuns} runs per ticket, a rate observed at 0% is consistent with a true rate ` +
+        `as high as ${pct(wilsonInterval(0, intendedRuns)[1])} — the interval, not the point, is the ` +
+        `honest claim. Ranges narrow with more runs; they do not narrow by wishing.`,
     );
     out.push("");
     if (flipping.length > 0) {
@@ -334,7 +343,7 @@ function buildReport(runs: RunRecord[], cases: TestCase[], inPath: string): stri
   out.push("");
   out.push(
     table(
-      ["Ticket", "Axis", "Runs", "Modal result", "Drift", "Action flip", "Confidence (mean ± sd)", "Failed"],
+      ["Ticket", "Axis", "Runs", "Modal result", "Drift (95% CI)", "Action flip (95% CI)", "Confidence (mean ± sd)", "Failed"],
       [...stats]
         .sort((a, b) => b.triple_drift_rate - a.triple_drift_rate || a.ticket_id.localeCompare(b.ticket_id))
         .map((s) => [
@@ -342,14 +351,19 @@ function buildReport(runs: RunRecord[], cases: TestCase[], inPath: string): stri
           s.axis,
           String(s.scored_runs),
           s.scored_runs > 0 ? s.modal_triple : "—",
-          s.scored_runs > 0 ? pct(s.triple_drift_rate) : "—",
-          s.scored_runs > 0 ? pct(s.action_flip_rate) : "—",
+          s.scored_runs > 0 ? `${pct(s.triple_drift_rate)} ${ci(s.triple_drift_ci)}` : "—",
+          s.scored_runs > 0 ? `${pct(s.action_flip_rate)} ${ci(s.action_flip_ci)}` : "—",
           s.scored_runs > 0
             ? `${num(s.confidence_mean)} ± ${num(s.confidence_stdev)}`
             : "—",
           s.failed_runs > 0 ? String(s.failed_runs) : "",
         ]),
     ),
+  );
+  out.push("");
+  out.push(
+    `_95% CI is the Wilson score interval on the drift/flip rate at this ticket's run count — ` +
+      `the range the true rate plausibly falls in, not the rate itself. See "How to read this."_`,
   );
   out.push("");
 
@@ -473,6 +487,41 @@ function buildReport(runs: RunRecord[], cases: TestCase[], inPath: string): stri
 
   out.push(`## Accuracy against expected labels`);
   out.push("");
+
+  // Any expected labels changed after a sweep are declared here, before the
+  // numbers they affect. Revising expectations to match observed output is the
+  // central way a study like this goes wrong, so the disclosure is mandatory
+  // and prints the original labels alongside the reasoning for the change.
+  const revised = cases.filter((c) => c.revision);
+  if (revised.length > 0) {
+    out.push(
+      `> ### ⚠️ ${revised.length} case${revised.length === 1 ? "" : "s"} had expected labels revised after a sweep`,
+    );
+    out.push(`>`);
+    out.push(
+      `> Changing expectations after seeing results is the main way a study like this ` +
+        `quietly becomes worthless. The original labels are preserved in ` +
+        `\`testset/cases.json\` and reproduced below so the change can be audited rather ` +
+        `than taken on trust. **Only the accuracy figures are affected — every drift and ` +
+        `consistency number in this report is computed without reference to expected labels ` +
+        `at all.**`,
+    );
+    out.push(`>`);
+    for (const c of revised) {
+      const r = c.revision!;
+      const fmt = (e: typeof r.original) =>
+        `${e.category.join(" or ")} / ${e.severity.join(" or ")} / ${e.action.join(" or ")} / conf ${e.confidence_range[0]}–${e.confidence_range[1]}`;
+      out.push(`> **\`${c.ticket_id}\`** (revised ${r.revised_on})`);
+      out.push(`>`);
+      out.push(`> - Was: \`${fmt(r.original)}\``);
+      out.push(`> - Now: \`${c.expected ? fmt(c.expected) : "—"}\``);
+      out.push(`>`);
+      out.push(`> ${r.reason}`);
+      out.push(`>`);
+    }
+    out.push("");
+  }
+
   out.push(
     `Reported separately from consistency, because they are different properties: an agent can ` +
       `be reliably wrong, or unreliably right. Expected labels are **the author's judgment**, ` +
@@ -568,6 +617,12 @@ function buildReport(runs: RunRecord[], cases: TestCase[], inPath: string): stri
       `- **Run count.** At ${intendedRuns} runs per ticket, the finest drift rate ` +
         `distinguishable from zero is one flip in ${intendedRuns} runs. A ticket reported at 0% ` +
         `drift may still be unstable at a rate below this resolution.`,
+      `- **95% CI is the Wilson score interval**, not the normal approximation — the normal ` +
+        `approximation is unreliable near 0% and 100%, which is where most rates in this report ` +
+        `fall. A ticket at 0% observed drift over ${intendedRuns} runs has a 95% CI upper bound of ` +
+        `${pct(wilsonInterval(0, intendedRuns)[1])}: consistent with "never drifts" and with a real ` +
+        `but rare failure mode this run count cannot distinguish between. Wider intervals mean the ` +
+        `run count could not buy more precision, not that the finding is weaker.`,
       `- **Sampling parameters.** The agent does not set \`temperature\`, so these runs use the ` +
         `API default. The harness measures the agent exactly as shipped and deliberately does not ` +
         `modify it; the observed variance is the variance a real deployment of this agent would have.`,

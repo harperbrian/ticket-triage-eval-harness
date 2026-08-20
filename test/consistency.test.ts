@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { computeTicketStats, fieldDrift, groupStability, stdev } from "../src/consistency.js";
+import { computeTicketStats, fieldDrift, groupStability, stdev, wilsonInterval } from "../src/consistency.js";
 import type { RunRecord, TestCase } from "../src/types.js";
 
 function ok(ticket_id: string, i: number, category: string, severity: string, action: string, confidence: number): RunRecord {
@@ -179,5 +179,44 @@ describe("groupStability", () => {
     assert.equal(groups[0]!.mean_drift, 0.5);
     assert.equal(groups[1]!.key, "clear_cut");
     assert.equal(groups[1]!.mean_drift, 0);
+  });
+});
+
+describe("wilsonInterval", () => {
+  it("returns [0, 0] for zero trials", () => {
+    assert.deepEqual(wilsonInterval(0, 0), [0, 0]);
+  });
+
+  it("matches the known Wilson bound for 0/8", () => {
+    const [lower, upper] = wilsonInterval(0, 8);
+    assert.equal(lower, 0);
+    assert.ok(Math.abs(upper - 0.324) < 0.001, `expected ~0.324, got ${upper}`);
+  });
+
+  it("matches the known Wilson bound for 0/20", () => {
+    const [lower, upper] = wilsonInterval(0, 20);
+    assert.equal(lower, 0);
+    assert.ok(Math.abs(upper - 0.161) < 0.001, `expected ~0.161, got ${upper}`);
+  });
+
+  it("is symmetric-ish and centered near p for a mid-range rate", () => {
+    const [lower, upper] = wilsonInterval(10, 20);
+    assert.ok(lower < 0.5 && upper > 0.5, "interval should straddle 0.5");
+    assert.ok(upper - 0.5 < 0.3 && 0.5 - lower < 0.3, "interval should be reasonably tight at n=20");
+  });
+
+  it("narrows as trials increase for the same rate", () => {
+    const [l8, u8] = wilsonInterval(2, 8);
+    const [l80, u80] = wilsonInterval(20, 80);
+    assert.ok(u80 - l80 < u8 - l8, "interval at n=80 should be narrower than at n=8");
+  });
+
+  it("stays within [0, 1] at the extremes", () => {
+    const [lowerAllFail, upperAllFail] = wilsonInterval(8, 8);
+    assert.ok(upperAllFail <= 1);
+    assert.ok(lowerAllFail >= 0);
+    const [lowerNone, upperNone] = wilsonInterval(0, 8);
+    assert.ok(upperNone <= 1);
+    assert.ok(lowerNone >= 0);
   });
 });

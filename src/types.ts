@@ -21,6 +21,22 @@ export interface ExpectedLabels {
   confidence_range: [number, number];
 }
 
+/**
+ * A post-hoc change to a case's expected labels.
+ *
+ * Revising expectations after seeing results is normally the exact failure this
+ * project exists to avoid, so the mechanism forces disclosure: the original
+ * labels are retained, the change is flagged, and the report prints it. A reader
+ * can then judge whether the stated reason is a genuine authoring correction or
+ * a rationalisation of whatever the agent happened to do.
+ */
+export interface Revision {
+  revised_on: string;
+  revised_after_seeing_results: boolean;
+  original: ExpectedLabels;
+  reason: string;
+}
+
 export interface TestCase {
   ticket_id: string;
   /** Repo-relative path to the ticket JSON. May point into the vendored submodule. */
@@ -28,6 +44,8 @@ export interface TestCase {
   axis: Axis;
   /** null for validation cases that never reach the API. */
   expected: ExpectedLabels | null;
+  /** Present only when the expected labels were changed after a sweep. */
+  revision?: Revision;
   notes: string;
 }
 
@@ -109,6 +127,12 @@ export interface TicketStats {
   /** Most frequent (category, severity, action) triple, and how often it recurred. */
   modal_triple: string;
   triple_drift_rate: number;
+  /**
+   * 95% Wilson score interval on the drift rate. At these run counts the point
+   * estimate alone overstates precision: 0 drift observed in 8 runs is
+   * consistent with a true rate anywhere up to roughly 32%.
+   */
+  triple_drift_ci: [number, number];
 
   category: FieldDrift;
   severity: FieldDrift;
@@ -116,6 +140,8 @@ export interface TicketStats {
 
   /** auto_reply vs escalate specifically — the operationally load-bearing flip. */
   action_flip_rate: number;
+  /** 95% Wilson score interval on action_flip_rate. */
+  action_flip_ci: [number, number];
 
   confidence_mean: number;
   confidence_min: number;
