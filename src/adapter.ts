@@ -68,6 +68,17 @@ export function classifyFailure(error: string): FailureKind {
   ) {
     return "config";
   }
+  // A billing or spend cap arrives as a 400, which would otherwise look like a
+  // malformed request. It means no measurement happened and the sweep was simply
+  // cut off, so it gets its own kind and its own remediation in the report.
+  if (
+    e.includes("usage limit") ||
+    e.includes("regain access") ||
+    e.includes("credit balance") ||
+    e.includes("billing")
+  ) {
+    return "usage_limit";
+  }
   if (e.includes("exceeded") && e.includes("tool-use iterations")) return "loop_exhausted";
   if (e.includes("did not return valid json") || e.includes("did not match the expected schema")) {
     return "malformed";

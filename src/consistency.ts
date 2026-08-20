@@ -2,11 +2,13 @@ import { scoreRun } from "./score.js";
 import type { FieldDrift, RunRecord, TestCase, TicketStats } from "./types.js";
 
 /**
- * Failure kinds attributable to the harness or to a deliberate pre-API rejection.
- * These are excluded from every rate: a missing API key is not agent instability,
- * and a Zod rejection is deterministic by construction.
+ * Failure kinds where no model response was obtained, plus the deterministic
+ * pre-API rejection. Excluded from every rate: a missing key, a billing cap, an
+ * overloaded endpoint, or a schema rejection all say nothing about how the agent
+ * classifies tickets. Only `malformed` and `loop_exhausted` — where the model did
+ * respond, badly — are counted as agent-attributable failures.
  */
-const EXCLUDED_FAILURES = new Set(["config", "validation"]);
+const EXCLUDED_FAILURES = new Set(["config", "validation", "usage_limit", "api"]);
 
 /** Most frequent value, drift rate, and full distribution for one field. */
 export function fieldDrift(values: string[]): FieldDrift {

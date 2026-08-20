@@ -34,15 +34,25 @@ export interface TestCase {
 /**
  * Why a run produced no TriageResult.
  *
- * The distinction is load-bearing: `config` means the harness was misconfigured
- * and the run says nothing about the agent, so those runs are excluded from
- * drift statistics rather than counted as instability. `malformed` is the
- * opposite — the model genuinely failed to produce valid output, which is a
- * reliability finding and must be counted.
+ * The distinction is load-bearing, and splits on one question: did the model
+ * actually respond?
+ *
+ * `malformed` and `loop_exhausted` mean it did, and responded badly — those are
+ * genuine reliability findings about the agent and are counted everywhere.
+ *
+ * `config`, `usage_limit`, and `api` mean no model response was ever obtained.
+ * A missing key, a billing cap, or an overloaded endpoint says nothing about how
+ * the agent classifies tickets, so these are excluded from drift statistics and
+ * are re-attempted on resume rather than counting toward the requested run total.
+ *
+ * `validation` is its own case: the agent's schema rejected the input before any
+ * API call. Deterministic by construction, so it is excluded from drift but does
+ * count as done — re-running it would only produce the same rejection.
  */
 export type FailureKind =
   | "config"
   | "validation"
+  | "usage_limit"
   | "api"
   | "malformed"
   | "loop_exhausted";

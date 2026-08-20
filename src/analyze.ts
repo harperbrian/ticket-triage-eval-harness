@@ -50,6 +50,55 @@ function readRuns(inPath: string): RunRecord[] {
   return runs;
 }
 
+/** Failure kinds meaning the model was never reached, so no measurement occurred. */
+const BLOCKED_KINDS = new Set(["config", "usage_limit", "api"]);
+
+interface Coverage {
+  intended: number;
+  complete: string[];
+  partial: Array<{ ticket_id: string; got: number }>;
+  missing: string[];
+  blockedRuns: number;
+  /** Distinct verbatim reasons the model could not be reached. */
+  reasons: string[];
+}
+
+/**
+ * Establishes how much of the intended sweep actually produced measurements.
+ *
+ * A sweep cut short by a billing cap or an outage yields a report that looks
+ * complete but silently rests on whichever tickets happened to run first. This
+ * is what lets the report say so, loudly, before any number is presented.
+ */
+function assessCoverage(runs: RunRecord[], cases: TestCase[], intended: number): Coverage {
+  const complete: string[] = [];
+  const partial: Array<{ ticket_id: string; got: number }> = [];
+  const missing: string[] = [];
+
+  for (const c of cases) {
+    if (c.axis === "validation") continue;
+    const scored = runs.filter((r) => r.ticket_id === c.ticket_id && r.ok).length;
+    if (scored === 0) missing.push(c.ticket_id);
+    else if (scored < intended) partial.push({ ticket_id: c.ticket_id, got: scored });
+    else complete.push(c.ticket_id);
+  }
+
+  const blocked = runs.filter((r) => r.failure_kind && BLOCKED_KINDS.has(r.failure_kind));
+  const reasons = [
+    ...new Set(
+      blocked.map((r) =>
+        (r.error ?? "")
+          .replace(/^Claude API call failed:\s*/, "")
+          .replace(/\{"type":"error","error":\{"type":"[^"]+","message":"/, "")
+          .replace(/"\},?"?request_id.*$/, "")
+          .slice(0, 160),
+      ),
+    ),
+  ];
+
+  return { intended, complete, partial, missing, blockedRuns: blocked.length, reasons };
+}
+
 /** True when the runs came from the offline fixture rather than a real sweep. */
 function isSyntheticSource(inPath: string): boolean {
   const rel = path.relative(REPO_ROOT, inPath).split(path.sep).join("/");
@@ -116,6 +165,51 @@ function buildReport(runs: RunRecord[], cases: TestCase[], inPath: string): stri
       `the same ticket submitted repeatedly, and how often the answer changes.`,
   );
   out.push("");
+
+  // Intended runs per ticket, inferred from the best-covered ticket. A sweep that
+  // was cut off still has some ticket that reached the target.
+  const intendedRuns = Math.max(
+    1,
+    ...measuredCases.map((c) => runs.filter((r) => r.ticket_id === c.ticket_id && r.ok).length),
+  );
+  const coverage = assessCoverage(runs, cases, intendedRuns);
+  const incomplete = coverage.missing.length > 0 || coverage.partial.length > 0;
+
+  if (incomplete) {
+    out.push(`> ## ⚠️ INCOMPLETE SWEEP — PARTIAL COVERAGE`);
+    out.push(`>`);
+    out.push(
+      `> This sweep did not finish. Of ${measuredCases.length} measurable tickets, ` +
+        `**${coverage.complete.length} have the full ${intendedRuns} runs**, ` +
+        `${coverage.partial.length} are partial, and **${coverage.missing.length} have no data at all**. ` +
+        `${coverage.blockedRuns} run(s) never reached the model.`,
+    );
+    out.push(`>`);
+    if (coverage.reasons.length > 0) {
+      out.push(`> Reason reported by the API:`);
+      out.push(`>`);
+      for (const r of coverage.reasons.slice(0, 3)) out.push(`> - \`${r}\``);
+      out.push(`>`);
+    }
+    if (coverage.missing.length > 0) {
+      out.push(`> **No data:** ${coverage.missing.map((t) => `\`${t}\``).join(", ")}`);
+      out.push(`>`);
+    }
+    if (coverage.partial.length > 0) {
+      out.push(
+        `> **Partial:** ` +
+          coverage.partial.map((p) => `\`${p.ticket_id}\` (${p.got}/${intendedRuns})`).join(", "),
+      );
+      out.push(`>`);
+    }
+    out.push(
+      `> Every figure below is computed **only over tickets that produced data**, and is not ` +
+        `representative of the full test set. The missing tickets are disproportionately the ` +
+        `newer, harder cases, so the drift rates here are likely an underestimate. Re-run the ` +
+        `sweep to completion before citing any of this.`,
+    );
+    out.push("");
+  }
 
   // ---- 1. Run configuration -------------------------------------------------
   out.push(`## Run configuration`);

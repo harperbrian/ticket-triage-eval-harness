@@ -28,6 +28,12 @@ Each output file is scoped to a single model so that sweeps of different models
 can never be mixed into one analysis.
 `.trim();
 
+/**
+ * Failures where no model response was obtained. These are re-attempted on resume
+ * rather than counting as completed runs.
+ */
+const RETRYABLE_FAILURES = new Set(["config", "usage_limit", "api"]);
+
 interface Options {
   runs: number;
   tickets: string[];
@@ -139,28 +145,30 @@ async function main() {
 
   // Two separate tallies, because they answer different questions.
   //
-  // `measured` decides how many more runs are owed. Config failures are skipped:
-  // they mean the API was never successfully reached, so no measurement happened
-  // and counting them would silently leave the ticket short of --runs. Every other
-  // failure kind does count — a malformed response or an API error is a real
-  // observed outcome, and retrying only those would bias the sweep toward success.
+  // `measured` decides how many more runs are owed. Runs where no model response
+  // was obtained — a missing key, a billing cap, an overloaded endpoint — are
+  // skipped, because no measurement happened and counting them would silently
+  // leave the ticket short of --runs with no warning. Runs where the model DID
+  // respond badly (malformed, loop_exhausted) do count: retrying only failures
+  // would bias the sweep toward success.
   //
   // `nextIndex` decides run numbering, and counts every record so that indices
   // stay unique within the file even when config failures are being re-run.
   const measured = new Map<string, number>();
   const nextIndex = new Map<string, number>();
   for (const r of existing) {
-    if (r.failure_kind !== "config") {
+    if (!RETRYABLE_FAILURES.has(r.failure_kind ?? "")) {
       measured.set(r.ticket_id, (measured.get(r.ticket_id) ?? 0) + 1);
     }
     nextIndex.set(r.ticket_id, Math.max(nextIndex.get(r.ticket_id) ?? 0, r.run_index + 1));
   }
 
-  const staleConfigFailures = existing.filter((r) => r.failure_kind === "config").length;
-  if (staleConfigFailures > 0) {
+  const retryable = existing.filter((r) => RETRYABLE_FAILURES.has(r.failure_kind ?? ""));
+  if (retryable.length > 0) {
+    const kinds = [...new Set(retryable.map((r) => r.failure_kind))].join(", ");
     console.error(
-      `Note: ignoring ${staleConfigFailures} earlier run(s) that failed with configuration ` +
-        `errors — those never reached the API, so they do not count toward --runs.\n`,
+      `Note: ignoring ${retryable.length} earlier run(s) that never reached the model ` +
+        `(${kinds}) — those do not count toward --runs and will be re-attempted.\n`,
     );
   }
 
