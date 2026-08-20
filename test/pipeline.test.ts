@@ -308,3 +308,52 @@ describe("fixture integrity", () => {
     }
   });
 });
+
+describe("revision disclosure", () => {
+  const cases = loadTestSet();
+
+  it("loads revised cases with their original labels preserved", () => {
+    const revised = cases.filter((c) => c.revision);
+    for (const c of revised) {
+      assert.ok(c.revision!.original, `${c.ticket_id} revision must retain the original labels`);
+      assert.ok(
+        c.revision!.reason.length > 200,
+        `${c.ticket_id} revision reason is too thin to audit`,
+      );
+      assert.equal(c.revision!.revised_after_seeing_results, true);
+    }
+  });
+
+  it("prints every revision in the report, before the numbers it affects", () => {
+    const report = execFileSync(
+      "npx",
+      ["tsx", "src/analyze.ts", "--in", "test/fixtures/sample-runs.jsonl", "--stdout"],
+      { cwd: REPO_ROOT, encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] },
+    );
+    const revised = cases.filter((c) => c.revision);
+    if (revised.length === 0) return;
+
+    assert.match(report, /had expected labels revised after a sweep/);
+    for (const c of revised) {
+      assert.ok(report.includes(c.ticket_id), `${c.ticket_id} revision not disclosed`);
+    }
+    // The disclosure must precede the accuracy figures it qualifies. Anchor on
+    // the agreement table's header specifically — "| Category |" also matches a
+    // row in the earlier stability-by-category table.
+    assert.ok(
+      report.indexOf("revised after a sweep") < report.indexOf("| Field | Agreement |"),
+      "revision disclosure must come before the accuracy table",
+    );
+  });
+
+  it("states that consistency figures do not depend on expected labels", () => {
+    const report = execFileSync(
+      "npx",
+      ["tsx", "src/analyze.ts", "--in", "test/fixtures/sample-runs.jsonl", "--stdout"],
+      { cwd: REPO_ROOT, encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] },
+    );
+    if (cases.some((c) => c.revision)) {
+      assert.match(report, /without reference to expected labels/);
+    }
+  });
+});

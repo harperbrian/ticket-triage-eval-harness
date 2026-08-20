@@ -11,11 +11,19 @@ const ExpectedLabelsSchema = z.object({
   confidence_range: z.tuple([z.number().min(0).max(1), z.number().min(0).max(1)]),
 });
 
+const RevisionSchema = z.object({
+  revised_on: z.string().min(1),
+  revised_after_seeing_results: z.boolean(),
+  original: ExpectedLabelsSchema,
+  reason: z.string().min(80, "a revision must explain itself in enough detail to be audited"),
+});
+
 const TestCaseSchema = z.object({
   ticket_id: z.string().min(1),
   path: z.string().min(1),
   axis: z.enum(["clear_cut", "ambiguous", "unknown_customer", "edge_case", "validation"]),
   expected: ExpectedLabelsSchema.nullable(),
+  revision: RevisionSchema.optional(),
   notes: z.string().min(1),
 });
 

@@ -4,10 +4,21 @@
     "path": "vendor/ticket-triage-agent/data/sample-tickets/01-clear-password-reset.json",
     "axis": "ambiguous",
     "expected": {
-      "category": ["account_access"],
-      "severity": ["P2", "P3"],
-      "action": ["auto_reply", "escalate"],
-      "confidence_range": [0.6, 0.95]
+      "category": [
+        "account_access"
+      ],
+      "severity": [
+        "P2",
+        "P3"
+      ],
+      "action": [
+        "auto_reply",
+        "escalate"
+      ],
+      "confidence_range": [
+        0.6,
+        0.95
+      ]
     },
     "notes": "The ticket that produced the original finding (P3/0.82/auto_reply vs P2/0.88/escalate). Category is unambiguous, but severity is genuinely borderline: one user locked out is P3 by impact, P2 if you weight the user being fully blocked. The agent's own rule (auto_reply only when a confident KB match AND severity is P3/P4) means the severity call determines the action, so both actions are defensible. Wide sets here are deliberate — this case is expected to score well on accuracy and poorly on consistency, which is the distinction the whole harness exists to draw."
   },
@@ -16,10 +27,20 @@
     "path": "vendor/ticket-triage-agent/data/sample-tickets/02-billing-mismatch.json",
     "axis": "clear_cut",
     "expected": {
-      "category": ["billing"],
-      "severity": ["P2", "P3"],
-      "action": ["escalate"],
-      "confidence_range": [0.6, 0.95]
+      "category": [
+        "billing"
+      ],
+      "severity": [
+        "P2",
+        "P3"
+      ],
+      "action": [
+        "escalate"
+      ],
+      "confidence_range": [
+        0.6,
+        0.95
+      ]
     },
     "notes": "Invoice 40% higher after a mid-cycle plan change. The KB article matches and explicitly says 'Do not issue credits directly — flag to Billing team,' so escalate is strict: auto-replying here would be following the tool-result's presence while ignoring its content."
   },
@@ -28,10 +49,21 @@
     "path": "vendor/ticket-triage-agent/data/sample-tickets/03-ambiguous-vague.json",
     "axis": "ambiguous",
     "expected": {
-      "category": ["technical", "other"],
-      "severity": ["P2", "P3"],
-      "action": ["escalate"],
-      "confidence_range": [0.0, 0.5]
+      "category": [
+        "technical",
+        "other"
+      ],
+      "severity": [
+        "P2",
+        "P3"
+      ],
+      "action": [
+        "escalate"
+      ],
+      "confidence_range": [
+        0.0,
+        0.5
+      ]
     },
     "notes": "Body is 'not working right now, please fix' — there is genuinely no signal for category, so technical and other are both defensible and neither is 'correct'. Severity is unknowable, which argues for caution (P2) or default (P3). Escalate is strict because nothing else is defensible at this information level. The real assertion here is the confidence ceiling: a schema that forces a specific category on a ticket this vague should at least report low confidence."
   },
@@ -40,10 +72,20 @@
     "path": "vendor/ticket-triage-agent/data/sample-tickets/04-unknown-customer.json",
     "axis": "unknown_customer",
     "expected": {
-      "category": ["technical"],
-      "severity": ["P2", "P3"],
-      "action": ["escalate"],
-      "confidence_range": [0.3, 0.7]
+      "category": [
+        "technical"
+      ],
+      "severity": [
+        "P2",
+        "P3"
+      ],
+      "action": [
+        "escalate"
+      ],
+      "confidence_range": [
+        0.3,
+        0.7
+      ]
     },
     "notes": "Export stuck at ~80,000 rows. The data_export_failure KB article matches and is directly on point, but its guidance is tier-dependent ('free and pro tiers' time out; 'Enterprise removes the row cap') and this customer is not in the CRM. So the agent cannot give correct advice without the tier, which makes escalate strict despite a clean KB hit — a KB match is necessary but not sufficient."
   },
@@ -52,10 +94,19 @@
     "path": "vendor/ticket-triage-agent/data/sample-tickets/05-urgent-p1.json",
     "axis": "clear_cut",
     "expected": {
-      "category": ["technical"],
-      "severity": ["P1"],
-      "action": ["escalate"],
-      "confidence_range": [0.75, 1.0]
+      "category": [
+        "technical"
+      ],
+      "severity": [
+        "P1"
+      ],
+      "action": [
+        "escalate"
+      ],
+      "confidence_range": [
+        0.75,
+        1.0
+      ]
     },
     "notes": "Production webhook integration down, data loss in progress, enterprise customer with 1290 days tenure. Every axis points the same direction. Strict on all three fields — if this one drifts, that is a significant finding."
   },
@@ -71,23 +122,41 @@
     "path": "vendor/ticket-triage-agent/data/sample-tickets/07-api-error-free-tier.json",
     "axis": "clear_cut",
     "expected": {
-      "category": ["technical"],
-      "severity": ["P3"],
-      "action": ["auto_reply"],
-      "confidence_range": [0.6, 0.95]
+      "category": [
+        "technical"
+      ],
+      "severity": [
+        "P3"
+      ],
+      "action": [
+        "auto_reply"
+      ],
+      "confidence_range": [
+        0.6,
+        0.95
+      ]
     },
     "notes": "403 errors on API calls, free tier customer. The api_integration_error KB article matches cleanly and gives actionable guidance (check key scope and expiration). Clean KB match plus P3 severity is precisely the condition the agent's own rule defines for auto_reply, so all three fields are strict. This is the primary auto_reply case in the set."
   },
-
   {
     "ticket_id": "T-2001",
     "path": "testset/tickets/08-feature-request-bulk-tags.json",
     "axis": "clear_cut",
     "expected": {
-      "category": ["feature_request"],
-      "severity": ["P3", "P4"],
-      "action": ["escalate"],
-      "confidence_range": [0.7, 1.0]
+      "category": [
+        "feature_request"
+      ],
+      "severity": [
+        "P3",
+        "P4"
+      ],
+      "action": [
+        "escalate"
+      ],
+      "confidence_range": [
+        0.7,
+        1.0
+      ]
     },
     "notes": "Adds the feature_request category, which the original 7 tickets never exercised. Customer explicitly says 'not urgent', so P4 is the natural read with P3 defensible. No KB article covers feature requests, so the agent's rule forces escalate. Useful for the correlation question because it decouples the two: high confidence AND escalate, where the original set only ever paired escalate with low confidence or high severity."
   },
@@ -96,10 +165,20 @@
     "path": "testset/tickets/09-compliance-docs-request.json",
     "axis": "clear_cut",
     "expected": {
-      "category": ["other"],
-      "severity": ["P3", "P4"],
-      "action": ["escalate"],
-      "confidence_range": [0.6, 1.0]
+      "category": [
+        "other"
+      ],
+      "severity": [
+        "P3",
+        "P4"
+      ],
+      "action": [
+        "escalate"
+      ],
+      "confidence_range": [
+        0.6,
+        1.0
+      ]
     },
     "notes": "Adds the 'other' category, never exercised by the original set. A SOC 2 / DPA request is not billing, technical, account_access, or a feature request, so 'other' is strict — this tests whether the catch-all category is actually reachable in practice or whether the agent forces everything into the four named buckets."
   },
@@ -108,10 +187,20 @@
     "path": "testset/tickets/10-slow-dashboard.json",
     "axis": "clear_cut",
     "expected": {
-      "category": ["technical"],
-      "severity": ["P3", "P4"],
-      "action": ["auto_reply"],
-      "confidence_range": [0.7, 1.0]
+      "category": [
+        "technical"
+      ],
+      "severity": [
+        "P3",
+        "P4"
+      ],
+      "action": [
+        "auto_reply"
+      ],
+      "confidence_range": [
+        0.7,
+        1.0
+      ]
     },
     "notes": "Exercises slow_performance, the one KB article the original 7 tickets never touched. ~4000 records matches the article's '1000+ records' condition and it offers a concrete workaround (switch to list view), so this is a clean auto_reply. Second auto_reply case in the set alongside T-1007 — with only one, auto_reply stability would be unmeasurable."
   },
@@ -120,10 +209,20 @@
     "path": "testset/tickets/11-annual-pricing-question.json",
     "axis": "edge_case",
     "expected": {
-      "category": ["billing"],
-      "severity": ["P3", "P4"],
-      "action": ["escalate"],
-      "confidence_range": [0.5, 0.9]
+      "category": [
+        "billing"
+      ],
+      "severity": [
+        "P3",
+        "P4"
+      ],
+      "action": [
+        "escalate"
+      ],
+      "confidence_range": [
+        0.5,
+        0.9
+      ]
     },
     "notes": "KB false-positive probe. This is a pricing question, but the word 'billing' is likely to appear in whatever query the agent composes, and lookupKb matches on substring — so it will probably retrieve the billing_invoice_mismatch article, which is about mid-cycle proration and is irrelevant here. Escalate is strict: auto-replying with proration guidance to a discount question would be a real failure. Tests whether the agent reads tool-result content or merely its presence."
   },
@@ -132,10 +231,21 @@
     "path": "testset/tickets/12-dual-issue-billing-and-export.json",
     "axis": "ambiguous",
     "expected": {
-      "category": ["billing", "technical"],
-      "severity": ["P2", "P3"],
-      "action": ["escalate"],
-      "confidence_range": [0.4, 0.8]
+      "category": [
+        "billing",
+        "technical"
+      ],
+      "severity": [
+        "P2",
+        "P3"
+      ],
+      "action": [
+        "escalate"
+      ],
+      "confidence_range": [
+        0.4,
+        0.8
+      ]
     },
     "notes": "Two genuinely unrelated issues in one ticket, forcing a single-label choice where no single label is right. Both are defensible, so this is the strongest category-drift candidate in the set. Note lookupKb returns the FIRST matching article in file order, and billing_invoice_mismatch precedes data_export_failure — so a query mentioning both resolves to billing regardless of which issue the agent considers primary."
   },
@@ -144,10 +254,21 @@
     "path": "testset/tickets/13-urgent-tone-cosmetic-issue.json",
     "axis": "edge_case",
     "expected": {
-      "category": ["technical", "other"],
-      "severity": ["P3", "P4"],
-      "action": ["escalate"],
-      "confidence_range": [0.5, 1.0]
+      "category": [
+        "technical",
+        "other"
+      ],
+      "severity": [
+        "P3",
+        "P4"
+      ],
+      "action": [
+        "escalate"
+      ],
+      "confidence_range": [
+        0.5,
+        1.0
+      ]
     },
     "notes": "Screaming subject line, cosmetic non-blocking content. Isolates tone from impact: a blurry logo is P4 by any impact-based reading, with P3 arguably defensible. A P1 or P2 result would mean the agent is pricing severity off emotional register rather than business impact, which is worth knowing before letting it route tickets unsupervised. The severity distribution in the report answers this directly."
   },
@@ -156,34 +277,87 @@
     "path": "testset/tickets/14-unknown-customer-production-down.json",
     "axis": "unknown_customer",
     "expected": {
-      "category": ["technical"],
-      "severity": ["P1", "P2"],
-      "action": ["escalate"],
-      "confidence_range": [0.5, 0.9]
+      "category": [
+        "technical"
+      ],
+      "severity": [
+        "P1",
+        "P2"
+      ],
+      "action": [
+        "escalate"
+      ],
+      "confidence_range": [
+        0.5,
+        0.9
+      ]
     },
     "notes": "Deliberate controlled contrast with T-1005: near-identical severity signals (production down, revenue impact, explicit urgency) but the customer is not in the CRM. If the agent's confidence is meaningfully lower here than on T-1005, missing account context is genuinely being priced into the score. If it is not, then confidence is tracking ticket urgency rather than actual epistemic state."
   },
   {
     "ticket_id": "T-2008",
     "path": "testset/tickets/15-contractor-scoped-permissions.json",
-    "axis": "clear_cut",
+    "axis": "ambiguous",
     "expected": {
-      "category": ["account_access"],
-      "severity": ["P3", "P4"],
-      "action": ["escalate"],
-      "confidence_range": [0.6, 1.0]
+      "category": [
+        "account_access",
+        "feature_request"
+      ],
+      "severity": [
+        "P2",
+        "P3",
+        "P4"
+      ],
+      "action": [
+        "escalate"
+      ],
+      "confidence_range": [
+        0.5,
+        1.0
+      ]
     },
-    "notes": "account_access without the password_reset crutch. The body deliberately avoids every keyword in that KB article (password, reset, login, locked out), so the agent has to reach the category from meaning rather than from a keyword hit. No KB article covers role scoping, so escalate is strict."
+    "notes": "Originally written to test whether the agent reaches account_access from meaning rather than from a password_reset keyword hit — the body deliberately avoids every keyword in that KB article. It does reach the access-control reading about half the time, but the sweep showed the case is genuinely ambiguous rather than clear-cut: with no KB article on role scoping, the agent cannot tell a how-to question from a feature request, and it says so explicitly in its own reasoning. See the revision block for what changed and why.",
+    "revision": {
+      "revised_on": "2026-08-19",
+      "revised_after_seeing_results": true,
+      "original": {
+        "category": [
+          "account_access"
+        ],
+        "severity": [
+          "P3",
+          "P4"
+        ],
+        "action": [
+          "escalate"
+        ],
+        "confidence_range": [
+          0.6,
+          1.0
+        ]
+      },
+      "reason": "Revised AFTER the first sweep, which is normally the exact thing this project exists to avoid — so the original labels are preserved above and the change is declared here rather than quietly applied. Two concrete authoring errors, both demonstrable from the ticket and the agent's own configuration without reference to what the agent actually output. (1) CATEGORY: the knowledge base contains no article on role scoping, so the agent has no way to determine whether project-scoped view-only permissions are a supported feature or an unbuilt capability. 'feature_request' is therefore defensible from the information available to it, and asserting 'account_access' as the single right answer assumed knowledge the agent cannot obtain. (2) SEVERITY: the original P3/P4 band ignored the ticket's stated deadline ('contractor starts next week') and the customer's enterprise tier and 842-day tenure — factors the agent's own system prompt explicitly directs it to weight toward faster escalation. P2 is defensible on those grounds. The axis was corrected from clear_cut to ambiguous for the same reason: a case whose category is undetermined by the available evidence is by definition not clear-cut. The action remains strict at escalate — no KB match means auto_reply is never appropriate. SCOPE OF THIS REVISION: T-2004 was reviewed at the same time and deliberately NOT revised. The agent rates it P2 on commercial grounds ('high-value sales opportunity'), but the ticket states no deadline and nothing is broken, so the original P3/P4 band stands and that disagreement is reported as a finding rather than corrected away. Only cases with an identifiable authoring error were changed."
+    }
   },
   {
     "ticket_id": "T-2009",
     "path": "testset/tickets/16-rambling-buried-webhook-issue.json",
     "axis": "edge_case",
     "expected": {
-      "category": ["technical"],
-      "severity": ["P2", "P3"],
-      "action": ["escalate"],
-      "confidence_range": [0.5, 0.9]
+      "category": [
+        "technical"
+      ],
+      "severity": [
+        "P2",
+        "P3"
+      ],
+      "action": [
+        "escalate"
+      ],
+      "confidence_range": [
+        0.5,
+        0.9
+      ]
     },
     "notes": "Signal extraction under noise. The actual issue — webhooks stopped after an API key rotation — is one sentence buried in four sentences of unrelated pleasantries, praise, and a throwaway mobile-app question. The failure mode to watch for is the agent latching onto the mobile app mention and classifying this as a feature_request."
   },
@@ -192,10 +366,20 @@
     "path": "testset/tickets/17-terse-double-charge.json",
     "axis": "edge_case",
     "expected": {
-      "category": ["billing"],
-      "severity": ["P2", "P3"],
-      "action": ["escalate"],
-      "confidence_range": [0.6, 1.0]
+      "category": [
+        "billing"
+      ],
+      "severity": [
+        "P2",
+        "P3"
+      ],
+      "action": [
+        "escalate"
+      ],
+      "confidence_range": [
+        0.6,
+        1.0
+      ]
     },
     "notes": "Direct contrast with T-1003: both are extremely short, but this one is completely unambiguous. Tests whether the agent conflates brevity with uncertainty. Confidence should be high despite four words of body; if it lands as low as T-1003's, the confidence score is measuring input length rather than clarity. Escalate is strict per the same KB instruction as T-1002."
   },
@@ -204,10 +388,21 @@
     "path": "testset/tickets/18-no-email-sso-redirect-loop.json",
     "axis": "unknown_customer",
     "expected": {
-      "category": ["account_access", "technical"],
-      "severity": ["P1", "P2"],
-      "action": ["escalate"],
-      "confidence_range": [0.4, 0.8]
+      "category": [
+        "account_access",
+        "technical"
+      ],
+      "severity": [
+        "P1",
+        "P2"
+      ],
+      "action": [
+        "escalate"
+      ],
+      "confidence_range": [
+        0.4,
+        0.8
+      ]
     },
     "notes": "No customer_email field at all — distinct from T-1004, where an email is present but not found in the CRM. Exercises the agent's 'if no email was provided' branch specifically. An SSO redirect loop is defensibly account_access or technical. Whole team is locked out, so P1/P2. Note the body contains 'sign in' rather than 'login', so whether the password_reset article matches depends entirely on how the agent phrases its own KB query — a second-order source of run-to-run variance."
   }
