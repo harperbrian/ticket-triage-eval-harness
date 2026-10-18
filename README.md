@@ -26,8 +26,10 @@ That question had no assumed answer when I built this. If the correlation turns 
 
 ## Results
 
-**First sweep: 8 runs × 18 tickets on `claude-sonnet-4-6`, agent pinned at `07c1f50`.**
+**First sweep: 8 runs × 18 tickets on `claude-sonnet-4-6`, agent pinned at `a2100a2`.**
 Full report: [`reports/claude-sonnet-4-6.md`](reports/claude-sonnet-4-6.md) · Raw runs: [`runs/claude-sonnet-4-6.jsonl`](runs/claude-sonnet-4-6.jsonl)
+
+> **History note (2026-10-18).** The agent repository's history was rewritten for a README text edit, so its commit hashes changed. The run records and the generated report name the hash recorded at the time (`07c1f50`); the same code is now commit `a2100a2`. Every file other than the agent's `README.md` is byte-identical between the two, checked by tree comparison.
 
 **6 of 17 tickets returned a different classification across identical runs.** Mean drift 12.5%.
 
